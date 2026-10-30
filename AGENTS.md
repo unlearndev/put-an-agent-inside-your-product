@@ -9,6 +9,7 @@ The back office for small online shops. React front end in `src/`, Express API i
 - `npm run typecheck`: TypeScript
 - `npm run seed`: reset the demo database
 - `npm run -s token -- <email>`: an MCP token for a demo account
+- `npm run evals`: ask the assistant the staff questions and check the answers (uses the API)
 
 ## How the code fits together
 

@@ -61,3 +61,7 @@ The Assistant button opens a panel where staff ask about their shop. It's Claude
 ```bash
 cp .env.example .env   # then set ANTHROPIC_API_KEY
 ```
+
+## Checking the assistant's answers
+
+`npm run evals` asks the assistant the questions in `evals/questions.ts` (the ones from `docs/research/staff-notes.md`), as the person who'd ask each one, and checks every answer against the database. It uses the API key in your `.env` (or one exported in your terminal), on a fresh copy of the demo data each time.
