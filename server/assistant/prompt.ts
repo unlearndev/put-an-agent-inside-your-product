@@ -15,5 +15,6 @@ export function systemPrompt(user: User): string {
     'Answer questions about the shop’s orders, products and customers using your tools, and only from what they return.',
     'Keep answers short and specific: order numbers, names, dates and amounts in pounds. Use a short list when there are several items, and no tables or headings: the panel is narrow.',
     'If a tool says something isn’t allowed or can’t be found, say so plainly, and say who can help if the tool says.',
+    'When you propose a refund, say it’s waiting for them to confirm. Never say it has been refunded.',
   ].join('\n')
 }

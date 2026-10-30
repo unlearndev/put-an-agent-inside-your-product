@@ -10,7 +10,7 @@ describe('Stockroom MCP server', () => {
   it('lists the tools from the spec', async () => {
     const { client } = await mcpAs(tom())
     const { tools } = await client.listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['find_customer', 'get_order', 'list_products', 'refund_order', 'search_orders', 'track_order'])
+    expect(tools.map((t) => t.name).sort()).toEqual(['find_customer', 'get_order', 'list_products', 'propose_refund', 'search_orders', 'track_order'])
   })
 
   it('searches orders in the user’s own shop', async () => {
@@ -33,10 +33,10 @@ describe('Stockroom MCP server', () => {
     expect(result.isError).toBe(true)
   })
 
-  it('refunds within the user’s limit, and refuses above it', async () => {
+  it('proposes refunds within the user’s limit, and refuses above it', async () => {
     const { call } = await mcpAs(tom())
-    expect((await call('refund_order', { number: 1154, amountPence: 2400, reason: 'Cracked mug' })).json().refunded).toBe('£24.00')
-    const tooMuch = await call('refund_order', { number: 1154, amountPence: 3800, reason: 'Whole order' })
+    expect((await call('propose_refund', { number: 1154, amountPence: 2400, reason: 'Cracked mug' })).json().proposal.amount).toBe('£24.00')
+    const tooMuch = await call('propose_refund', { number: 1154, amountPence: 6200, reason: 'Whole order' })
     expect(tooMuch.isError).toBe(true)
     expect(tooMuch.text).toContain('£50.00')
   })

@@ -13,7 +13,10 @@ export function Order({ number, user }: { number: number; user: User }) {
   useEffect(() => {
     setOrder(null)
     setError('')
-    api<OrderDetail>(`/orders/${number}`).then(setOrder, (e) => setError(e.message))
+    const load = () => api<OrderDetail>(`/orders/${number}`).then(setOrder, (e) => setError(e.message))
+    load()
+    window.addEventListener('stockroom:changed', load)
+    return () => window.removeEventListener('stockroom:changed', load)
   }, [number])
 
   if (error) return <div className="empty">{error} <Link to="/orders">Back to orders</Link></div>

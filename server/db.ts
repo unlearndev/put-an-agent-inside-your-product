@@ -63,6 +63,16 @@ CREATE TABLE IF NOT EXISTS assistant_messages (
   created_at TEXT NOT NULL,
   PRIMARY KEY (conversation_id, position)
 );
+CREATE TABLE IF NOT EXISTS proposed_refunds (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  order_number INTEGER NOT NULL REFERENCES orders(number),
+  amount_pence INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('waiting', 'confirmed', 'declined')),
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
 `
 
 let db: DatabaseSync | undefined

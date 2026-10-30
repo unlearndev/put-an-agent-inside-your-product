@@ -12,6 +12,7 @@ export type AssistantEvent =
   | { type: 'text'; text: string }
   | { type: 'tool'; id: string; title: string; input: unknown }
   | { type: 'tool_done'; id: string; ok: boolean }
+  | { type: 'proposal'; proposal: { id: string; orderNumber: number; customer: string; amount: string; reason: string } }
   | { type: 'done'; conversationId: string }
   | { type: 'error'; message: string }
 
@@ -45,6 +46,9 @@ export async function runAssistant(user: User, history: BetaMessageParam[], ques
         try {
           const result = await tool.run(input, context as any)
           send({ type: 'tool_done', id, ok: true })
+          // A proposed refund shows as a card the person confirms or declines.
+          const text = Array.isArray(result) && result[0]?.type === 'text' ? result[0].text : ''
+          if (text.startsWith('{"proposal"')) send({ type: 'proposal', proposal: JSON.parse(text).proposal })
           return result
         } catch (error) {
           send({ type: 'tool_done', id, ok: false })

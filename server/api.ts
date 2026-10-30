@@ -5,6 +5,7 @@ import { searchOrders, getOrder, type OrderStatus } from './services/orders.ts'
 import { listProducts } from './services/products.ts'
 import { listCustomers, getCustomer } from './services/customers.ts'
 import { refundOrder } from './services/refunds.ts'
+import { confirmRefund, declineRefund } from './services/proposed-refunds.ts'
 
 export function createApi() {
   const api = express.Router()
@@ -34,6 +35,14 @@ export function createApi() {
 
   api.post('/orders/:number/refunds', (req, res) => {
     res.json(refundOrder(req.user!, Number(req.params.number), Number(req.body?.amountPence), String(req.body?.reason ?? 'Refunded by staff')))
+  })
+
+  // The assistant's proposed refunds, confirmed or declined by the person they were proposed to.
+  api.post('/proposed-refunds/:id/confirm', (req, res) => res.json(confirmRefund(req.user!, String(req.params.id))))
+
+  api.post('/proposed-refunds/:id/decline', (req, res) => {
+    declineRefund(req.user!, String(req.params.id))
+    res.status(204).end()
   })
 
   api.get('/products', (req, res) => res.json(listProducts(req.user!, { lowStockOnly: req.query.low === '1' })))

@@ -18,7 +18,10 @@ export function Orders() {
   const [go, setGo] = useState('')
 
   useEffect(() => {
-    api<OrderSummary[]>(`/orders${status ? `?status=${status}` : ''}`).then(setOrders)
+    const load = () => api<OrderSummary[]>(`/orders${status ? `?status=${status}` : ''}`).then(setOrders)
+    load()
+    window.addEventListener('stockroom:changed', load)
+    return () => window.removeEventListener('stockroom:changed', load)
   }, [status])
 
   return (

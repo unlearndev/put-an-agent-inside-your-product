@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Markdown } from './Markdown.tsx'
 import { roleName, type User } from '../api.ts'
+import { ProposedRefund, type Proposal } from './ProposedRefund.tsx'
 
 type ToolCall = { id: string; title: string; input: Record<string, unknown>; status: 'running' | 'done' | 'failed' }
-type Turn = { question: string; tools: ToolCall[]; answer: string; working: boolean; error?: string }
+type Turn = { question: string; tools: ToolCall[]; answer: string; proposals: Proposal[]; working: boolean; error?: string }
 
 type Event =
   | { type: 'text'; text: string }
   | { type: 'tool'; id: string; title: string; input: Record<string, unknown> }
   | { type: 'tool_done'; id: string; ok: boolean }
+  | { type: 'proposal'; proposal: Proposal }
   | { type: 'done'; conversationId: string }
   | { type: 'error'; message: string }
 
@@ -56,12 +58,13 @@ export function Assistant({ user, onClose }: { user: User; onClose: () => void }
     const q = question.trim()
     if (!q || working) return
     setQuestion('')
-    setTurns((all) => [...all, { question: q, tools: [], answer: '', working: true }])
+    setTurns((all) => [...all, { question: q, tools: [], answer: '', proposals: [], working: true }])
     try {
       await ask(q, conversationId, (e) => {
         if (e.type === 'text') update((t) => ({ ...t, answer: t.answer + e.text }))
         if (e.type === 'tool') update((t) => ({ ...t, tools: [...t.tools, { id: e.id, title: e.title, input: e.input, status: 'running' }] }))
         if (e.type === 'tool_done') update((t) => ({ ...t, tools: t.tools.map((c) => (c.id === e.id ? { ...c, status: e.ok ? 'done' : 'failed' } : c)) }))
+        if (e.type === 'proposal') update((t) => ({ ...t, proposals: [...t.proposals, e.proposal] }))
         if (e.type === 'done') setConversationId(e.conversationId)
         if (e.type === 'error') update((t) => ({ ...t, error: e.message }))
       })
@@ -100,6 +103,7 @@ export function Assistant({ user, onClose }: { user: User; onClose: () => void }
               </ul>
             )}
             {t.answer && <div className="answer"><Markdown text={t.answer} /></div>}
+            {t.proposals.map((p) => <ProposedRefund key={p.id} proposal={p} />)}
             {t.working && !t.answer && <div className="working">Working</div>}
             {t.error && <p className="error">{t.error}</p>}
           </div>

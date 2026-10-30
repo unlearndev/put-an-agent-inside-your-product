@@ -4,7 +4,7 @@ import { NotAllowed, NotFound, type User } from '../permissions.ts'
 import { searchOrders, getOrder, type OrderSummary, type OrderDetail } from '../services/orders.ts'
 import { findCustomer } from '../services/customers.ts'
 import { listProducts } from '../services/products.ts'
-import { refundOrder } from '../services/refunds.ts'
+import { proposeRefund } from '../services/proposed-refunds.ts'
 import { pounds } from '../money.ts'
 
 // Stockroom's MCP server, built for one signed-in user. Every tool runs as that user,
@@ -94,18 +94,24 @@ export function stockroomMcpServer(user: User): McpServer {
   )
 
   server.registerTool(
-    'refund_order',
+    'propose_refund',
     {
-      title: 'Refund an order',
-      description: 'Refund some or all of an order, for example when something arrived broken. Support staff can refund up to £50.00 an order.',
+      title: 'Propose a refund',
+      description:
+        'Propose refunding some or all of an order, for example when something arrived broken. Nothing is refunded until the person confirms it in Stockroom. ' +
+        'Support staff can refund up to £50.00 an order.',
       inputSchema: z.object({
         number: z.number().int().describe('The order number'),
         amountPence: z.number().int().positive().describe('How much to refund, in pence: 2400 is £24.00'),
         reason: z.string().describe('Why, in a few words'),
       }),
-      annotations: { readOnlyHint: false, destructiveHint: true },
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async ({ number, amountPence, reason }) => run(() => detail(refundOrder(user, number, amountPence, reason))),
+    async ({ number, amountPence, reason }) =>
+      run(() => {
+        const proposal = proposeRefund(user, number, amountPence, reason)
+        return { proposal: { ...proposal, amount: pounds(proposal.amountPence) }, note: `Waiting for ${user.name} to confirm it in Stockroom. Nothing has been refunded yet.` }
+      }),
   )
 
   return server

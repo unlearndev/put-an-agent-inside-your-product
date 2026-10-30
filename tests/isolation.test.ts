@@ -16,7 +16,7 @@ const otherShop = [
   ['track_order', { number: 1171 }],
   ['find_customer', { query: 'grace.lin@example.org' }],
   ['list_products', {}],
-  ['refund_order', { number: 1171, amountPence: 100, reason: 'Test' }],
+  ['propose_refund', { number: 1171, amountPence: 100, reason: 'Test' }],
 ] as const
 
 describe('every tool stays inside the user’s shop', () => {
