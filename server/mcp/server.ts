@@ -6,7 +6,6 @@ import { findCustomer } from '../services/customers.ts'
 import { listProducts } from '../services/products.ts'
 import { refundOrder } from '../services/refunds.ts'
 import { pounds } from '../money.ts'
-import { getDb } from '../db.ts'
 
 // Stockroom's MCP server, built for one signed-in user. Every tool runs as that user,
 // through the same services the app uses, so it can only reach what they can.
@@ -54,22 +53,15 @@ export function stockroomMcpServer(user: User): McpServer {
     },
     async ({ number }) =>
       run(() => {
-        const order = getDb()
-          .prepare(
-            `SELECT o.number, o.status, o.placed_at, o.shipped_at, c.name, c.email, c.address
-             FROM orders o JOIN customers c ON c.id = o.customer_id
-             WHERE o.number = ?`,
-          )
-          .get(number) as Record<string, string> | undefined
-        if (!order) throw new NotFound(`There’s no order ${number}.`)
+        const order = getOrder(user, number)
         return {
           number: order.number,
           status: order.status,
-          placed: order.placed_at.slice(0, 10),
-          shipped: order.shipped_at?.slice(0, 10) ?? null,
-          customer: order.name,
-          customerEmail: order.email,
-          deliveryAddress: order.address,
+          placed: order.placedAt.slice(0, 10),
+          shipped: order.shippedAt?.slice(0, 10) ?? null,
+          customer: order.customer,
+          customerEmail: order.customerEmail ?? undefined,
+          deliveryAddress: order.deliveryAddress,
         }
       }),
   )
