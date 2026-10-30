@@ -8,6 +8,7 @@ The back office for small online shops. React front end in `src/`, Express API i
 - `npm test`: Vitest
 - `npm run typecheck`: TypeScript
 - `npm run seed`: reset the demo database
+- `npm run -s token -- <email>`: an MCP token for a demo account
 
 ## How the code fits together
 
@@ -16,3 +17,4 @@ The back office for small online shops. React front end in `src/`, Express API i
 - The clock is fixed (`server/clock.ts`). Use `now()` and `today()`, never `new Date()`.
 - Server files are TypeScript that Node runs directly, so imports end in `.ts` and only erasable syntax is allowed (no enums, no parameter properties).
 - Money is whole pence in the database and the services.
+- The MCP server (`server/mcp/`) is built for one user per request. Its tools call the services; they never take a shop or a user as an argument.

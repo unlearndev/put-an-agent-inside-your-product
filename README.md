@@ -38,3 +38,18 @@ npm test           # Vitest, against an in-memory copy of the demo data
 npm run typecheck  # TypeScript
 npm run seed       # reset data/stockroom.db
 ```
+
+## The MCP server
+
+Stockroom's MCP server is at `/mcp` (Streamable HTTP), in `server/mcp/`. It needs a token for one of the demo accounts, and every tool runs as that person, in their shop:
+
+```bash
+npm run -s token -- tom@larkspur.test
+```
+
+To use it from Claude Code, with the app running (Codex and Cursor take the same URL and bearer token in their own MCP settings):
+
+```bash
+export STOCKROOM_TOKEN=$(npm run -s token -- tom@larkspur.test)
+claude mcp add --transport http stockroom http://localhost:5173/mcp --header "Authorization: Bearer $STOCKROOM_TOKEN"
+```
