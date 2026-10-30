@@ -1,7 +1,7 @@
 import { McpServer, type CallToolResult } from '@modelcontextprotocol/server'
 import * as z from 'zod'
 import { NotAllowed, NotFound, type User } from '../permissions.ts'
-import { searchOrders, getOrder, type OrderSummary, type OrderDetail } from '../services/orders.ts'
+import { searchOrders, countOrders, getOrder, type OrderSummary, type OrderDetail } from '../services/orders.ts'
 import { findCustomer } from '../services/customers.ts'
 import { listProducts } from '../services/products.ts'
 import { proposeRefund } from '../services/proposed-refunds.ts'
@@ -18,7 +18,8 @@ export function stockroomMcpServer(user: User): McpServer {
       title: 'Search orders',
       description:
         'Find this shop’s orders by status, customer, or the dates they were placed. Use it for questions about several orders, ' +
-        'like which are waiting to be packed or what came in last week. Status "paid" means paid and waiting to be packed.',
+        'like which are waiting to be packed or what came in last week. Status "paid" means paid and waiting to be packed. ' +
+        'Returns the newest 20 that match, and the total number that match: use the total for questions about how many.',
       inputSchema: z.object({
         status: z.enum(['paid', 'packed', 'shipped', 'delivered', 'refunded']).optional(),
         customer: z.string().optional().describe('Part of the customer’s name or email'),
@@ -27,7 +28,11 @@ export function stockroomMcpServer(user: User): McpServer {
       }),
       annotations: { readOnlyHint: true },
     },
-    async (filters) => run(() => searchOrders(user, { ...filters, limit: 20 }).map(summary)),
+    async (filters) =>
+      run(() => {
+        const orders = searchOrders(user, { ...filters, limit: 20 }).map(summary)
+        return { total: countOrders(user, filters), showing: orders.length, orders }
+      }),
   )
 
   server.registerTool(

@@ -29,8 +29,7 @@ export type OrderFilters = {
   limit?: number
 }
 
-// Every query is scoped to the signed-in user's shop.
-export function searchOrders(user: User, filters: OrderFilters = {}): OrderSummary[] {
+function whereFor(user: User, filters: OrderFilters) {
   const where = ['o.shop_id = ?']
   const args: (string | number)[] = [user.shopId]
   if (filters.status) {
@@ -50,12 +49,18 @@ export function searchOrders(user: User, filters: OrderFilters = {}): OrderSumma
     where.push('o.placed_at < date(?, \'+1 day\')')
     args.push(filters.placedTo)
   }
+  return { sql: where.join(' AND '), args }
+}
+
+// Every query is scoped to the signed-in user's shop.
+export function searchOrders(user: User, filters: OrderFilters = {}): OrderSummary[] {
+  const { sql, args } = whereFor(user, filters)
   args.push(filters.limit ?? 500)
   const rows = getDb()
     .prepare(
       `SELECT o.number, o.placed_at, c.name AS customer, o.total_pence, o.status
        FROM orders o JOIN customers c ON c.id = o.customer_id
-       WHERE ${where.join(' AND ')}
+       WHERE ${sql}
        ORDER BY o.placed_at DESC
        LIMIT ?`,
     )
@@ -67,6 +72,12 @@ export function searchOrders(user: User, filters: OrderFilters = {}): OrderSumma
     totalPence: r.total_pence,
     status: r.status,
   }))
+}
+
+export function countOrders(user: User, filters: OrderFilters = {}): number {
+  const { sql, args } = whereFor(user, filters)
+  const row = getDb().prepare(`SELECT count(*) AS n FROM orders o JOIN customers c ON c.id = o.customer_id WHERE ${sql}`).get(...args) as { n: number }
+  return row.n
 }
 
 export function getOrder(user: User, number: number): OrderDetail {

@@ -15,8 +15,16 @@ describe('Stockroom MCP server', () => {
 
   it('searches orders in the user’s own shop', async () => {
     const { call } = await mcpAs(tom())
-    const orders = (await call('search_orders', { status: 'paid' })).json()
-    expect(orders.map((o: { number: number }) => o.number)).toEqual([1177, 1175, 1173, 1166, 1157])
+    const result = (await call('search_orders', { status: 'paid' })).json()
+    expect(result.orders.map((o: { number: number }) => o.number)).toEqual([1177, 1175, 1173, 1166, 1157])
+    expect(result.total).toBe(5)
+  })
+
+  it('says how many orders match, not just the first 20', async () => {
+    const { call } = await mcpAs(tom())
+    const result = (await call('search_orders', { placedFrom: '2026-10-01', placedTo: '2026-10-31' })).json()
+    expect(result.showing).toBe(20)
+    expect(result.total).toBe(66)
   })
 
   it('gets an order by number', async () => {
