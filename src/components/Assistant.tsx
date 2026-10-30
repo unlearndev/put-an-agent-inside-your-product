@@ -4,13 +4,15 @@ import { roleName, type User } from '../api.ts'
 import { ProposedRefund, type Proposal } from './ProposedRefund.tsx'
 
 type ToolCall = { id: string; title: string; input: Record<string, unknown>; status: 'running' | 'done' | 'failed' }
-type Turn = { question: string; tools: ToolCall[]; answer: string; proposals: Proposal[]; working: boolean; error?: string }
+type Usage = { requests: number; inputTokens: number; cacheWriteTokens: number; cacheReadTokens: number; outputTokens: number; costUsd: number }
+type Turn = { question: string; tools: ToolCall[]; answer: string; proposals: Proposal[]; usage?: Usage; working: boolean; error?: string }
 
 type Event =
   | { type: 'text'; text: string }
   | { type: 'tool'; id: string; title: string; input: Record<string, unknown> }
   | { type: 'tool_done'; id: string; ok: boolean }
   | { type: 'proposal'; proposal: Proposal }
+  | { type: 'usage'; usage: Usage }
   | { type: 'done'; conversationId: string }
   | { type: 'error'; message: string }
 
@@ -41,6 +43,18 @@ function describe(input: Record<string, unknown>) {
     .join(', ')
 }
 
+// What the answer cost. Shown while developing, not to staff.
+function UsageLine({ usage }: { usage: Usage }) {
+  const n = (x: number) => x.toLocaleString('en-GB')
+  const tokensIn = usage.inputTokens + usage.cacheWriteTokens + usage.cacheReadTokens
+  return (
+    <div className="usage">
+      {usage.requests} {usage.requests === 1 ? 'request' : 'requests'} · {n(tokensIn)} tokens in ({n(usage.cacheReadTokens)} cached) · {n(usage.outputTokens)} out · $
+      {usage.costUsd.toFixed(3)}
+    </div>
+  )
+}
+
 export function Assistant({ user, onClose }: { user: User; onClose: () => void }) {
   const [turns, setTurns] = useState<Turn[]>([])
   const [question, setQuestion] = useState('')
@@ -65,6 +79,7 @@ export function Assistant({ user, onClose }: { user: User; onClose: () => void }
         if (e.type === 'tool') update((t) => ({ ...t, tools: [...t.tools, { id: e.id, title: e.title, input: e.input, status: 'running' }] }))
         if (e.type === 'tool_done') update((t) => ({ ...t, tools: t.tools.map((c) => (c.id === e.id ? { ...c, status: e.ok ? 'done' : 'failed' } : c)) }))
         if (e.type === 'proposal') update((t) => ({ ...t, proposals: [...t.proposals, e.proposal] }))
+        if (e.type === 'usage') update((t) => ({ ...t, usage: e.usage }))
         if (e.type === 'done') setConversationId(e.conversationId)
         if (e.type === 'error') update((t) => ({ ...t, error: e.message }))
       })
@@ -104,6 +119,7 @@ export function Assistant({ user, onClose }: { user: User; onClose: () => void }
             )}
             {t.answer && <div className="answer"><Markdown text={t.answer} /></div>}
             {t.proposals.map((p) => <ProposedRefund key={p.id} proposal={p} />)}
+            {import.meta.env.DEV && t.usage && <UsageLine usage={t.usage} />}
             {t.working && !t.answer && <div className="working">Working</div>}
             {t.error && <p className="error">{t.error}</p>}
           </div>

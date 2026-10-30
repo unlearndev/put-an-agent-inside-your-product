@@ -73,6 +73,19 @@ CREATE TABLE IF NOT EXISTS proposed_refunds (
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS assistant_usage (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  conversation_id TEXT NOT NULL,
+  model TEXT NOT NULL,
+  requests INTEGER NOT NULL,
+  input_tokens INTEGER NOT NULL,
+  cache_write_tokens INTEGER NOT NULL,
+  cache_read_tokens INTEGER NOT NULL,
+  output_tokens INTEGER NOT NULL,
+  cost_usd REAL NOT NULL,
+  created_at TEXT NOT NULL
+);
 `
 
 let db: DatabaseSync | undefined

@@ -4,6 +4,7 @@ import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client'
 import { stockroomMcpServer } from '../mcp/server.ts'
 import { systemPrompt } from './prompt.ts'
+import { addUsage, emptyUsage, MAX_STEPS, type Usage } from './costs.ts'
 import type { User } from '../permissions.ts'
 
 export const MODEL = process.env.ASSISTANT_MODEL ?? 'claude-sonnet-5-5'
@@ -13,6 +14,7 @@ export type AssistantEvent =
   | { type: 'tool'; id: string; title: string; input: unknown }
   | { type: 'tool_done'; id: string; ok: boolean }
   | { type: 'proposal'; proposal: { id: string; orderNumber: number; customer: string; amount: string; reason: string } }
+  | { type: 'usage'; usage: Usage }
   | { type: 'done'; conversationId: string }
   | { type: 'error'; message: string }
 
@@ -28,8 +30,14 @@ async function connectAs(user: User) {
 let anthropic: Anthropic | undefined
 
 // One question: Claude calls the tools it needs, through the SDK's tool runner, until it has an answer.
-// Returns the new messages (the question, the tool calls and results, the answer) to add to the conversation.
-export async function runAssistant(user: User, history: BetaMessageParam[], question: string, send: (event: AssistantEvent) => void): Promise<BetaMessageParam[]> {
+// Returns the new messages (the question, the tool calls and results, the answer) to add to the conversation,
+// and what it used.
+export async function runAssistant(
+  user: User,
+  history: BetaMessageParam[],
+  question: string,
+  send: (event: AssistantEvent) => void,
+): Promise<{ messages: BetaMessageParam[]; usage: Usage }> {
   anthropic ??= new Anthropic()
   const mcp = await connectAs(user)
   try {
@@ -65,9 +73,12 @@ export async function runAssistant(user: User, history: BetaMessageParam[], ques
       tools: runnable,
       messages: [...history, { role: 'user', content: question }],
       thread: false, // the conversation lives in our database, and we send it each time
+      cache_control: { type: 'ephemeral' }, // cache everything up to the newest message, so repeats cost less
+      max_iterations: MAX_STEPS,
       stream: true,
     })
 
+    let usage = emptyUsage()
     let wrote = false
     for await (const turn of runner) {
       let first = true
@@ -77,12 +88,18 @@ export async function runAssistant(user: User, history: BetaMessageParam[], ques
         wrote = true
         send({ type: 'text', text })
       })
-      await turn.finalMessage()
+      const reply = await turn.finalMessage()
+      usage = addUsage(usage, MODEL, reply.usage)
     }
     const answer = await runner.done()
     if (answer.stop_reason === 'refusal') send({ type: 'text', text: 'Sorry, I can’t help with that one.' })
+    if (answer.stop_reason === 'tool_use') {
+      // It hit MAX_STEPS and was still calling tools.
+      send({ type: 'text', text: `\n\nI stopped after ${MAX_STEPS} steps without an answer. Try asking about fewer orders at once.` })
+    }
+    send({ type: 'usage', usage })
     // runner.params.messages now holds the whole conversation, ending with the answer.
-    return runner.params.messages.slice(history.length)
+    return { messages: runner.params.messages.slice(history.length), usage }
   } finally {
     await mcp.close()
   }

@@ -132,3 +132,4 @@ input:focus { outline: 2px solid var(--green-soft); border-color: var(--green); 
 .proposal-title { font-weight: 700; }
 .proposal-actions { display: flex; gap: 8px; margin-top: 4px; }
 .proposal-result { font-weight: 600; }
+.usage { font-size: 12px; color: var(--muted); font-family: 'SF Mono', ui-monospace, Menlo, monospace; }
