@@ -10,7 +10,7 @@ describe('Stockroom MCP server', () => {
   it('lists the tools from the spec', async () => {
     const { client } = await mcpAs(tom())
     const { tools } = await client.listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['find_customer', 'get_order', 'list_products', 'refund_order', 'search_orders'])
+    expect(tools.map((t) => t.name).sort()).toEqual(['find_customer', 'get_order', 'list_products', 'refund_order', 'search_orders', 'track_order'])
   })
 
   it('searches orders in the user’s own shop', async () => {
@@ -39,6 +39,13 @@ describe('Stockroom MCP server', () => {
     const tooMuch = await call('refund_order', { number: 1154, amountPence: 3800, reason: 'Whole order' })
     expect(tooMuch.isError).toBe(true)
     expect(tooMuch.text).toContain('£50.00')
+  })
+
+  it('tracks an order', async () => {
+    const { call } = await mcpAs(tom())
+    const order = (await call('track_order', { number: 1154 })).json()
+    expect(order.status).toBe('delivered')
+    expect(order.shipped).toBe('2026-11-12')
   })
 
   it('lists low stock', async () => {
