@@ -53,3 +53,11 @@ To use it from Claude Code, with the app running (Codex and Cursor take the same
 export STOCKROOM_TOKEN=$(npm run -s token -- tom@larkspur.test)
 claude mcp add --transport http stockroom http://localhost:5173/mcp --header "Authorization: Bearer $STOCKROOM_TOKEN"
 ```
+
+## The assistant
+
+The Assistant button opens a panel where staff ask about their shop. It's Claude, with Stockroom's MCP tools, running as whoever is signed in (`server/assistant/`). It needs an Anthropic API key:
+
+```bash
+cp .env.example .env   # then set ANTHROPIC_API_KEY
+```

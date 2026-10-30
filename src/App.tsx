@@ -6,9 +6,11 @@ import { Orders } from './pages/Orders.tsx'
 import { Order } from './pages/Order.tsx'
 import { Products } from './pages/Products.tsx'
 import { Customers } from './pages/Customers.tsx'
+import { Assistant } from './components/Assistant.tsx'
 
 export function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined)
+  const [assistantOpen, setAssistantOpen] = useState(false)
   const path = usePath()
 
   useEffect(() => {
@@ -20,6 +22,7 @@ export function App() {
 
   const signOut = async () => {
     await api('/session', { method: 'DELETE' })
+    setAssistantOpen(false)
     setUser(null)
     navigate('/')
   }
@@ -37,7 +40,7 @@ export function App() {
   ]
 
   return (
-    <div className="layout">
+    <div className={assistantOpen ? 'layout with-assistant' : 'layout'}>
       <aside className="sidebar">
         <div className="brand">
           <img src="/favicon.svg" alt="" />
@@ -57,7 +60,15 @@ export function App() {
           <button className="link" onClick={signOut}>Sign out</button>
         </div>
       </aside>
-      <main className="main">{page}</main>
+      <main className="main">
+        {!assistantOpen && (
+          <button className="assistant-toggle" onClick={() => setAssistantOpen(true)}>
+            Assistant
+          </button>
+        )}
+        {page}
+      </main>
+      {assistantOpen && <Assistant key={user.id} user={user} onClose={() => setAssistantOpen(false)} />}
     </div>
   )
 }

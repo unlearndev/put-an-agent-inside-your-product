@@ -55,6 +55,14 @@ CREATE TABLE IF NOT EXISTS refunds (
   refunded_by INTEGER NOT NULL REFERENCES users(id),
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS assistant_messages (
+  conversation_id TEXT NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  position INTEGER NOT NULL,
+  message TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (conversation_id, position)
+);
 `
 
 let db: DatabaseSync | undefined

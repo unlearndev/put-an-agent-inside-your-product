@@ -1,0 +1,85 @@
+import Anthropic from '@anthropic-ai/sdk'
+import { mcpTools, type MCPClientLike } from '@anthropic-ai/sdk/helpers/beta/mcp'
+import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages'
+import { Client, InMemoryTransport } from '@modelcontextprotocol/client'
+import { stockroomMcpServer } from '../mcp/server.ts'
+import { systemPrompt } from './prompt.ts'
+import type { User } from '../permissions.ts'
+
+export const MODEL = process.env.ASSISTANT_MODEL ?? 'claude-sonnet-5-5'
+
+export type AssistantEvent =
+  | { type: 'text'; text: string }
+  | { type: 'tool'; id: string; title: string; input: unknown }
+  | { type: 'tool_done'; id: string; ok: boolean }
+  | { type: 'done'; conversationId: string }
+  | { type: 'error'; message: string }
+
+// Connects to Stockroom's own MCP server, built for this one user, in this process.
+async function connectAs(user: User) {
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+  await stockroomMcpServer(user).connect(serverTransport)
+  const client = new Client({ name: 'stockroom-assistant', version: '1.0.0' })
+  await client.connect(clientTransport)
+  return client
+}
+
+let anthropic: Anthropic | undefined
+
+// One question: Claude calls the tools it needs, through the SDK's tool runner, until it has an answer.
+// Returns the new messages (the question, the tool calls and results, the answer) to add to the conversation.
+export async function runAssistant(user: User, history: BetaMessageParam[], question: string, send: (event: AssistantEvent) => void): Promise<BetaMessageParam[]> {
+  anthropic ??= new Anthropic()
+  const mcp = await connectAs(user)
+  try {
+    const { tools } = await mcp.listTools()
+    const titles = new Map(tools.map((t) => [t.name, t.title ?? t.name]))
+
+    // Each MCP tool becomes a tool Claude can call. We wrap run() to tell the browser when it starts and finishes.
+    // (The cast: MCP SDK v2 types structuredContent as unknown, where the helper expects an object.)
+    const runnable = mcpTools(tools, mcp as MCPClientLike).map((tool) => ({
+      ...tool,
+      run: async (input: Record<string, unknown>, context?: { toolUse: { id: string } }) => {
+        const id = context?.toolUse.id ?? tool.name
+        send({ type: 'tool', id, title: titles.get(tool.name)!, input })
+        try {
+          const result = await tool.run(input, context as any)
+          send({ type: 'tool_done', id, ok: true })
+          return result
+        } catch (error) {
+          send({ type: 'tool_done', id, ok: false })
+          throw error
+        }
+      },
+    }))
+
+    const runner = anthropic.beta.messages.toolRunner({
+      model: MODEL,
+      max_tokens: 8000,
+      output_config: { effort: 'low' },
+      system: systemPrompt(user),
+      tools: runnable,
+      messages: [...history, { role: 'user', content: question }],
+      thread: false, // the conversation lives in our database, and we send it each time
+      stream: true,
+    })
+
+    let wrote = false
+    for await (const turn of runner) {
+      let first = true
+      turn.on('text', (text) => {
+        if (first && wrote) send({ type: 'text', text: '\n\n' }) // a new paragraph for each turn
+        first = false
+        wrote = true
+        send({ type: 'text', text })
+      })
+      await turn.finalMessage()
+    }
+    const answer = await runner.done()
+    if (answer.stop_reason === 'refusal') send({ type: 'text', text: 'Sorry, I can’t help with that one.' })
+    // runner.params.messages now holds the whole conversation, ending with the answer.
+    return runner.params.messages.slice(history.length)
+  } finally {
+    await mcp.close()
+  }
+}
